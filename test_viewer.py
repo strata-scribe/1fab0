@@ -171,6 +171,70 @@ class TestViewerServerLive(unittest.TestCase):
         self.assertEqual(ctx.exception.code, 404)
 
 
+class TestEmbeddedBenchmarkProvenance(unittest.TestCase):
+    def setUp(self):
+        index_path = os.path.join(os.path.dirname(__file__), "docs", "index.html")
+        with open(index_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        import re
+        m = re.search(r'const EMBEDDED_BENCHMARK = (\{.*?\});', content)
+        self.assertIsNotNone(m, "EMBEDDED_BENCHMARK must exist in docs/index.html")
+        self.benchmark = json.loads(m.group(1))
+
+    def test_embedded_metadata(self):
+        self.assertEqual(self.benchmark.get("battery"), "battery-v4")
+        self.assertEqual(
+            self.benchmark.get("battery_sha256"),
+            "e90b093bbbd7898b726cf4cc41167b3f7d010c888cd47d3e4a007e25f6392991"
+        )
+        sample_rows = self.benchmark.get("sample_rows", [])
+        self.assertEqual(len(sample_rows), 36)
+
+    def test_embedded_rows_verbatim_provenance(self):
+        sample_rows = self.benchmark.get("sample_rows", [])
+        for row in sample_rows:
+            self.assertNotIn(
+                "trajectory", row,
+                f"Row {row.get('item')} {row.get('condition')} must not have trajectory key; rows must be verbatim from runs-v4.jsonl"
+            )
+            self.assertIn("sha256", row)
+            self.assertIn("prev", row)
+            self.assertIn("battery_sha256", row)
+
+        # Check against results/runs-v4.jsonl if available locally or via git pr-6
+        v4_content = None
+        runs_v4_path = os.path.join(os.path.dirname(__file__), "results", "runs-v4.jsonl")
+        if os.path.exists(runs_v4_path):
+            with open(runs_v4_path, "r", encoding="utf-8") as f:
+                v4_content = f.read()
+        else:
+            try:
+                import subprocess
+                v4_content = subprocess.check_output(
+                    ["git", "show", "pr-6:results/runs-v4.jsonl"],
+                    stderr=subprocess.DEVNULL
+                ).decode("utf-8")
+            except Exception:
+                pass
+
+        if v4_content:
+            for row in sample_rows:
+                self.assertIn(
+                    row["sha256"], v4_content,
+                    f"Row sha256 {row['sha256']} must be found verbatim in results/runs-v4.jsonl"
+                )
+
+    def test_embedded_verdicts(self):
+        verdicts = self.benchmark.get("verdicts", {})
+        self.assertEqual(len(verdicts), 6)
+        self.assertEqual(verdicts["1"]["verdict"], "failed")
+        self.assertEqual(verdicts["2"]["verdict"], "failed")
+        self.assertEqual(verdicts["3"]["verdict"], "held")
+        self.assertEqual(verdicts["4"]["verdict"], "held")
+        self.assertEqual(verdicts["5"]["verdict"], "held")
+        self.assertEqual(verdicts["6"]["verdict"], "failed")
+
+
 if __name__ == "__main__":
     unittest.main()
 

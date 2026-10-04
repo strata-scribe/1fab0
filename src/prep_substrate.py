@@ -43,7 +43,7 @@ nt = f.read_table(f'{D}/body-neurotransmitters-male-cns-v1.0.feather', columns=[
 cons = nt['consensus_nt'].reindex(ids).fillna('missing').to_numpy(); pred = nt['predicted_nt'].reindex(ids).fillna('missing').to_numpy()
 lab = np.where(np.isin(cons, ['unclear', 'missing']), pred, cons)
 # Grant 1FAB0 Dare (Vish #7586, Quire c91300): Shiu et al. 2024 monoamines rule
-# Setting dopamine, octopamine, and serotonin to +1 restores 903 bodies and 589,183 edges.
+# Setting dopamine, octopamine, and serotonin to +1 restores 903 bodies and 637,149 edges.
 # Supported via --monoamines flag or FLY_MONOAMINES_EXCITATORY=1 env var.
 use_mono = ('--monoamines' in sys.argv or '--monoamines-excitatory' in sys.argv or os.environ.get('FLY_MONOAMINES_EXCITATORY') == '1')
 if use_mono:
